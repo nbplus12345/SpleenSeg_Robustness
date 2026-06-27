@@ -68,7 +68,7 @@ def compute_3d_hd95(pred_volume, label_volume, spacing=None):
 
 
 def empty_mask_flags(pred_volume, label_volume):
+    """Return foreground-empty flags used for HD95 interpretation and summaries."""
     pred = np.asarray(pred_volume) > 0
     label = np.asarray(label_volume) > 0
     return not bool(pred.any()), not bool(label.any())
-
