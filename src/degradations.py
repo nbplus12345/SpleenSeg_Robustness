@@ -11,6 +11,7 @@ SUPPORTED_DEGRADATIONS = {
 
 
 def _normalized_range(config):
+    """Read the model input range used for clipping degraded slices."""
     value_range = config.get("data", {}).get("normalized_range", [0.0, 1.0])
     if len(value_range) != 2:
         raise ValueError("data.normalized_range must contain exactly two values.")
@@ -18,11 +19,13 @@ def _normalized_range(config):
 
 
 def _clip(image, config):
+    """Clamp degraded images to the normalized input range."""
     clip_min, clip_max = _normalized_range(config)
     return np.clip(image, clip_min, clip_max).astype(np.float32, copy=False)
 
 
 def _gaussian_smooth_2d(image, sigma):
+    """Apply 2D Gaussian smoothing to a single slice."""
     smoothed = GaussianSmooth(sigma=float(sigma))(image[np.newaxis, ...])
     return np.asarray(smoothed[0], dtype=np.float32)
 
@@ -30,9 +33,9 @@ def _gaussian_smooth_2d(image, sigma):
 def apply_degradation(image, degradation_name, strength_value, config, rng=None):
     """Apply a configured image degradation to one normalized 2D slice.
 
-    The current MONAI pipeline normalizes CT intensities to [0, 1] after
-    windowing [-160, 240]. Degraded slices are clipped back to that configured
-    normalized range before inference.
+    The current preprocessing pipeline normalizes CT intensities to [0, 1]
+    after windowing [-160, 240]. Degraded slices are clipped back to the
+    configured normalized range before inference.
     """
     if degradation_name not in SUPPORTED_DEGRADATIONS:
         raise ValueError(f"Unsupported degradation: {degradation_name}")
@@ -67,4 +70,3 @@ def apply_degradation(image, degradation_name, strength_value, config, rng=None)
         return _clip(_gaussian_smooth_2d(image, float(strength_value)), config)
 
     raise ValueError(f"Unsupported degradation: {degradation_name}")
-
