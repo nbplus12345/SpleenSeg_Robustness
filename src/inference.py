@@ -9,7 +9,38 @@ from src.io_utils import make_rng
 from src.preprocessing import apply_preprocessing
 
 
+def keep_largest_connected_component(mask_volume):
+    """Keep the largest foreground component in a rebuilt 3D mask.
+
+    This post-processing step reduces small disconnected false-positive
+    components before volume-level metrics are computed.
+    """
+    try:
+        from scipy.ndimage import label
+    except ImportError as exc:
+        raise ImportError(
+            "Largest connected component post-processing requires scipy."
+        ) from exc
+
+    mask = np.asarray(mask_volume) > 0
+    if not mask.any():
+        return mask.astype(np.uint8)
+
+    # Component filtering is applied after slice-wise inference so that the
+    # retained structure is selected in the reconstructed 3D volume.
+    structure = np.ones((3, 3, 3), dtype=bool)
+    labeled, num_components = label(mask, structure=structure)
+    if num_components <= 1:
+        return mask.astype(np.uint8)
+
+    component_sizes = np.bincount(labeled.ravel())
+    component_sizes[0] = 0
+    largest_component = int(component_sizes.argmax())
+    return (labeled == largest_component).astype(np.uint8)
+
+
 def resolve_device(requested_device, logger=None):
+    """Resolve the requested compute device with graceful CPU fallback."""
     requested_device = str(requested_device or "cuda").lower()
     if requested_device in {"directml", "dml"}:
         try:
@@ -29,7 +60,8 @@ def resolve_device(requested_device, logger=None):
     return torch.device(requested_device)
 
 
-def build_monai_unet(model_config, device):
+def build_unet(model_config, device):
+    """Construct the 2D U-Net architecture expected by the saved checkpoint."""
     channels = tuple(int(v) for v in model_config.get("channels", [64, 128, 256, 512, 1024]))
     strides = tuple(int(v) for v in model_config.get("strides", [2, 2, 2, 2]))
     model = UNet(
@@ -44,6 +76,7 @@ def build_monai_unet(model_config, device):
 
 
 def load_model_checkpoint(model, checkpoint_path, device):
+    """Load either a raw state_dict or a wrapped training checkpoint."""
     checkpoint_path = Path(checkpoint_path)
     if not checkpoint_path.exists():
         raise FileNotFoundError(f"Model checkpoint not found: {checkpoint_path}")
@@ -79,7 +112,12 @@ def predict_volume_slicewise(
     case_id,
     condition_key,
 ):
-    """Run 2D model inference slice by slice and rebuild a 3D prediction volume."""
+    """Run 2D model inference slice by slice and rebuild a 3D prediction volume.
+
+    The model remains 2D, but metrics are evaluated on the reconstructed 3D
+    mask. Degradation and preprocessing are applied to each normalized slice
+    immediately before inference.
+    """
     image_volume = np.asarray(image_volume, dtype=np.float32)
     if image_volume.ndim != 3:
         raise ValueError(f"Expected a 3D image volume, got shape {image_volume.shape}.")
@@ -113,5 +151,7 @@ def predict_volume_slicewise(
             mask = (probs > threshold).to(torch.uint8).squeeze().cpu().numpy()
             pred_volume[:, :, slice_index] = mask
 
-    return pred_volume
+    if config.get("inference", {}).get("keep_largest_connected_component", True):
+        pred_volume = keep_largest_connected_component(pred_volume)
 
+    return pred_volume
