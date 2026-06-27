@@ -1,0 +1,67 @@
+model:
+  checkpoint_path: "./output/weights/SpleenSeg_UNet_model_monai.pth"
+  device: "cuda"
+  num_classes: 2
+  input_channels: 1
+  output_channels: 1
+  channels: [64, 128, 256, 512, 1024]
+  strides: [2, 2, 2, 2]
+  num_res_units: 2
+
+data:
+  test_images_dir: "./dataset/test/images"
+  test_labels_dir: "./dataset/test/labels"
+  image_suffix: ".nii.gz"
+  label_suffix: ".nii.gz"
+  use_spacing_for_hd95: true
+  intensity_window:
+    a_min: -160.0
+    a_max: 240.0
+    b_min: 0.0
+    b_max: 1.0
+  normalized_range: [0.0, 1.0]
+
+evaluation:
+  include_clean_baseline: true
+  clean_preprocessing:
+    - none
+    - gaussian_filter
+    - median_filter
+
+degradations:
+  gaussian_noise:
+    enabled: true
+    std: [0.1, 0.2, 0.3]
+
+  salt_pepper_noise:
+    enabled: true
+    amount: [0.01, 0.03]
+
+  gaussian_blur:
+    enabled: true
+    sigma: [0.5, 1.0]
+
+preprocessing:
+  methods:
+    - none
+    - gaussian_filter
+    - median_filter
+
+  gaussian_filter:
+    sigma: 1.0
+
+  median_filter:
+    size: 3
+
+inference:
+  threshold: 0.5
+
+output:
+  output_dir: "./results/robustness"
+  save_predictions: true
+  save_prediction_cases: "all"
+  prediction_format: "nii.gz"
+
+random:
+  seed: 42
+

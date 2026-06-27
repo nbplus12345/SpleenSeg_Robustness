@@ -1,0 +1,13 @@
+numpy~=1.26.4
+matplotlib
+tqdm~=4.67.3
+
+nibabel
+
+torch
+torchvision
+
+monai==1.5.2
+pyyaml
+tensorboard
+scipy

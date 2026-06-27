@@ -1,0 +1,32 @@
+# SpleenSeg-UNet 全局配置文件
+
+# 1. 统一的路径管理中心
+paths:
+  data_root_dir: "./dataset"
+  test_image_dir: "./dataset/test/images"
+  test_label_dir: "./dataset/test/labels"
+  # 需要进行分割的 CT 文件
+  CT_dir: "./dataset/test/images/spleen_2.nii.gz"
+  weight_path: "./output/weights/SpleenSeg_UNet_model.pth"
+  # 分割完输出标签的路径
+  output_path: "./output/predictions/segmentation_spleen_label.nii.gz"
+  checkpoint_path: "./output/weights/latest_checkpoint.pth"
+
+# 2. 训练专属配置
+train:
+  num_worker: 0
+  batch_size: 2
+  lr: 0.01
+  momentum: 0.9
+  epochs: 300
+  patience: 10
+  resume_training: false
+  val_interval: 5
+  scheduler_patience: 6
+
+# 3. 评估与测试配置
+evaluate:
+  batch_size: 2
+
+inference:
+  batch_size: 2
