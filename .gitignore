@@ -1,7 +1,4 @@
-# ==========================================
-# SpleenSeg_UNet .gitignore 配置
-# ==========================================
-
+# Project documentation is intentionally excluded from generated artifacts.
 *.md
 
 dataset/*
@@ -20,6 +17,7 @@ output/predictions/*
 !output/predictions/.gitkeep
 
 predictions/
+results/
 *.pth
 *.pt
 latest_checkpoint.pth
@@ -29,3 +27,4 @@ __pycache__/
 .vscode/
 .DS_Store
 model/
+
