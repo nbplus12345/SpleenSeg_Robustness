@@ -12,6 +12,8 @@ import yaml
 
 @dataclass(frozen=True)
 class CaseFile:
+    """Resolved image-label pair for one test case."""
+
     case_id: str
     image_path: Path
     label_path: Path
@@ -19,6 +21,8 @@ class CaseFile:
 
 @dataclass
 class LoadedCase:
+    """In-memory volume data and spatial metadata for one test case."""
+
     case_id: str
     image: np.ndarray
     label: np.ndarray
@@ -30,6 +34,7 @@ class LoadedCase:
 
 
 def load_yaml_config(config_path):
+    """Load a YAML configuration file as a plain dictionary."""
     config_path = Path(config_path)
     if not config_path.exists():
         raise FileNotFoundError(f"Config file not found: {config_path}")
@@ -41,6 +46,7 @@ def load_yaml_config(config_path):
 
 
 def resolve_path(path_value, base_dir):
+    """Resolve a path relative to the project root unless it is already absolute."""
     path = Path(path_value).expanduser()
     if path.is_absolute():
         return path
@@ -48,6 +54,7 @@ def resolve_path(path_value, base_dir):
 
 
 def setup_logger(log_file):
+    """Create a fresh file-and-console logger for one evaluation run."""
     log_file = Path(log_file)
     log_file.parent.mkdir(parents=True, exist_ok=True)
 
@@ -71,12 +78,19 @@ def setup_logger(log_file):
 
 
 def _strip_suffix(filename, suffix):
+    """Remove a configured suffix while validating filename consistency."""
     if not filename.endswith(suffix):
         raise ValueError(f"File does not end with expected suffix '{suffix}': {filename}")
     return filename[: -len(suffix)]
 
 
 def find_test_cases(data_config, project_root):
+    """Pair 3D test images and labels by case ID.
+
+    The function fails loudly if the directory is missing, no NIfTI files are
+    present, or image/label case IDs do not match. This prevents accidental
+    3D reconstruction from mispaired volumes.
+    """
     images_dir = resolve_path(data_config["test_images_dir"], project_root)
     labels_dir = resolve_path(data_config["test_labels_dir"], project_root)
     image_suffix = data_config.get("image_suffix", ".nii.gz")
@@ -113,6 +127,7 @@ def find_test_cases(data_config, project_root):
 
 
 def load_case(case_file):
+    """Load one case from NIfTI files and preserve image spatial metadata."""
     image_nii = nib.load(str(case_file.image_path))
     label_nii = nib.load(str(case_file.label_path))
 
@@ -144,6 +159,7 @@ def load_case(case_file):
 
 
 def normalize_image_volume(image, data_config):
+    """Apply the training-time CT window and intensity normalization to a volume."""
     window = data_config.get("intensity_window", {})
     a_min = float(window.get("a_min", -160.0))
     a_max = float(window.get("a_max", 240.0))
@@ -164,6 +180,7 @@ def normalize_image_volume(image, data_config):
 
 
 def save_prediction_mask(pred_volume, output_path, affine, header):
+    """Save a binary 3D prediction mask with the source image geometry."""
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     save_header = header.copy()
@@ -174,6 +191,7 @@ def save_prediction_mask(pred_volume, output_path, affine, header):
 
 
 def write_csv(rows, output_path, fieldnames):
+    """Write dictionaries to CSV using an explicit, stable column order."""
     output_path = Path(output_path)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", newline="", encoding="utf-8") as f:
@@ -184,12 +202,14 @@ def write_csv(rows, output_path, fieldnames):
 
 
 def format_spacing(spacing):
+    """Serialize voxel spacing for compact CSV storage."""
     if spacing is None:
         return ""
     return ",".join(f"{float(v):.6g}" for v in spacing)
 
 
 def make_rng(seed, *parts):
+    """Create a deterministic RNG keyed by seed and condition/case identifiers."""
     payload = "|".join([str(seed), *[str(part) for part in parts]]).encode("utf-8")
     digest = hashlib.sha256(payload).digest()
     seed_value = int.from_bytes(digest[:8], byteorder="little") % (2**32)
@@ -197,6 +217,7 @@ def make_rng(seed, *parts):
 
 
 def should_save_prediction(case_id, save_prediction_cases):
+    """Decide whether a case should have its prediction mask written to disk."""
     if save_prediction_cases == "all":
         return True
     if isinstance(save_prediction_cases, list):
@@ -205,7 +226,7 @@ def should_save_prediction(case_id, save_prediction_cases):
 
 
 def ensure_output_dir(path):
+    """Create and return the requested output directory."""
     path = Path(path)
     path.mkdir(parents=True, exist_ok=True)
     return path
-
